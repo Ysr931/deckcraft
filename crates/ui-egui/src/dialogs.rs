@@ -71,6 +71,7 @@ fn title(id: &str) -> &'static str {
         "bullets" => "Bullets and Numbering",
         "action" => "Action Settings",
         "quit" => "DeckCraft",
+        "fileChanged" => "Datei geändert",
         "themeColors" => "Create New Theme Colors",
         "themeFonts" => "Create New Theme Fonts",
         _ => "DeckCraft",
@@ -209,6 +210,7 @@ mod columns;
 mod date_time;
 mod equation;
 mod export;
+mod file_changed;
 mod find;
 mod font;
 mod grid_options;

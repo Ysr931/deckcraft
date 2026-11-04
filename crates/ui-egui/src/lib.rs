@@ -307,6 +307,8 @@ pub struct SlideApp {
     pub last_recovery: f64,
     /// Quit was confirmed (changes saved or discarded): let the window close.
     pub quit_confirmed: bool,
+    /// Zum Wecken des Fensters für die Nachfrage in `dialogs/file_changed.rs`; `logic` hält ihn aktuell.
+    pub(crate) file_changed_ctx: Option<egui::Context>,
     pub(crate) notes_buf: (u64, usize, notes::Draft),
     /// Faces borrowed from the font database for text the interface fonts can't draw (#101).
     pub ui_fonts: uifonts::UiFonts,

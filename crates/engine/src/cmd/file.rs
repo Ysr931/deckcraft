@@ -33,7 +33,7 @@ pub fn specs() -> Vec<CommandSpec> {
             adopt
         ),
         cmd!(noundo "file.openBytes", "Open Data", [], None, "{name, data: base64}", always, open_bytes),
-        cmd!(noundo "file.save", "Save", ["File"], Some("Cmd+S"), "{path?, format?: deckcraft|pptx}", has_doc, save),
+        cmd!(noundo "file.save", "Save", ["File"], Some("Cmd+S"), "{path?, format?: deckcraft|pptx, overwrite?: bool (replace the presentation's own file even if it changed on disk since it was opened or last saved here; without it that is an error)}", has_doc, save),
         cmd!(noundo "file.saveAs", "Save As…", ["File"], Some("Cmd+Shift+S"), "{path, format?}", has_doc, save_as),
         cmd!(noundo "file.saveTemplate", "Save as Template…", ["File"], None, "{path}", has_doc, save_as),
         cmd!(query "file.saveBytes", "Save to Data", [], None, "{format?: deckcraft|pptx} → {data: base64}", has_doc, save_bytes_cmd),
@@ -247,24 +247,29 @@ pub struct LoadedFile {
     pub native: bool,
     /// What the file had lost or damaged.
     pub damaged: Damage,
+    /// Stand der Datei von vor dem Lesen: Eine Änderung während des Lesens zählt dann noch als
+    /// Änderung (`file_stamp.rs`).
+    pub stamp: Option<crate::file_stamp::FileStamp>,
 }
 
 /// Read and parse the presentation at `path`.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn read_presentation_file(path: &str) -> Result<LoadedFile> {
+    let stamp = crate::file_stamp::file_stamp(path);
     let bytes = crate::io::read_file(path).map_err(EngineError::Other)?;
     let (doc, damaged) = open_checked(path, &bytes)?;
     let native = deckcraft_format::sniff(&bytes) || deckcraft_pptx::sniff(&bytes);
-    Ok(LoadedFile { path: path.to_string(), doc, native, damaged })
+    Ok(LoadedFile { path: path.to_string(), doc, native, damaged, stamp })
 }
 
 /// Add a loaded presentation as the active document: the shared end of `file.open` and
 /// `file.adopt`. A damaged file opens as an untitled repaired copy, so Save can't overwrite the
 /// original with the empty media.
 fn adopt_loaded(s: &mut Session, f: LoadedFile) -> Result<Value> {
-    let LoadedFile { path, doc, native, damaged } = f;
+    let LoadedFile { path, doc, native, damaged, stamp } = f;
     let keep_path = native && damaged.is_empty();
     let i = add_opened(s, &path, keep_path.then(|| path.clone()), doc);
+    s.doc_mut()?.file_stamp = stamp;
     report_damage(s, &damaged)?;
     let st = s.doc()?;
     Ok(json!({
@@ -486,10 +491,16 @@ fn save(s: &mut Session, p: &Value) -> Result<Value> {
         s.ui_requests.push(crate::UiRequest::PickFile { purpose: "saveAs".into() });
         return Ok(json!({"needsPath": true}));
     };
+    // Eine von außen geänderte Datei wird nur mit ausdrücklicher Zustimmung ersetzt (file_stamp.rs).
+    let d = s.doc()?;
+    if d.path.as_deref() == Some(path.as_str()) && !bool_or(p, "overwrite", false) && d.file_changed_elsewhere() {
+        return Err(EngineError::Other(crate::file_stamp::CHANGED_ELSEWHERE.into()));
+    }
     let format = str_param(p, "format").unwrap_or(format_for_path(&path));
     let bytes = save_bytes(&s.doc()?.doc, format)?;
     write_file(&path, &bytes)?;
     mark_saved(s, Some(path.clone()))?;
+    s.doc_mut()?.file_stamp = crate::file_stamp::file_stamp(&path);
     Ok(json!({"path": path, "bytes": bytes.len()}))
 }
 
@@ -498,7 +509,12 @@ fn save_as(s: &mut Session, p: &Value) -> Result<Value> {
         s.ui_requests.push(crate::UiRequest::PickFile { purpose: "saveAs".into() });
         return Ok(json!({"needsPath": true}));
     }
-    save(s, p)
+    // Wer eine Datei ausdrücklich als Ziel nennt, hat dem Ersetzen schon zugestimmt.
+    let mut p = p.clone();
+    if let Some(o) = p.as_object_mut() {
+        o.insert("overwrite".into(), json!(true));
+    }
+    save(s, &p)
 }
 
 fn save_bytes_cmd(s: &mut Session, p: &Value) -> Result<Value> {

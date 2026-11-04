@@ -4,6 +4,7 @@ use super::columns::columns_dialog;
 use super::date_time::{date_rows, date_time_dialog};
 use super::equation::pretty_equation;
 use super::export::gif_options;
+use super::file_changed::file_changed_dialog;
 use super::find::find_dialog;
 use super::font::font_dialog;
 use super::grid_options::grid_options;
@@ -32,6 +33,7 @@ pub(super) fn body(app: &mut SlideApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         "setupShow" => dlg_setup_show(app, ui, d),
         "quit" => dlg_quit(app, ui, d),
         "close" => dlg_close(app, ui, d),
+        "fileChanged" => file_changed_dialog(app, ui),
         "zoom" => zoom_dialog(app, ui, d),
         "comment" => dlg_comment(app, ui, d),
         "bullets" => dlg_bullets(app, ui, d),

@@ -226,6 +226,9 @@ pub fn open(s: &mut Session, dir: &Path) -> Result<Vec<usize>> {
         // Unsaved: the copy on disk (if any) is older than what was recovered.
         st.saved_doc = std::sync::Arc::new((*st.doc).clone());
         st.revision += 1;
+        // Eigene Ergänzung: Ein anderer Rechner kann die Datei seit dem Absturz geändert haben, und
+        // ihr Stand von damals ist nicht bekannt. Das erste Speichern fragt deshalb nach.
+        st.file_stamp = st.path.is_some().then(crate::file_stamp::FileStamp::unknown);
         opened.push(s.add_document(st));
     }
     remove_stale_locks(dir);

@@ -419,6 +419,11 @@ impl SlideApp {
 
     pub fn save(&mut self) {
         if self.session.active().and_then(|d| d.path.clone()).is_some() {
+            // Die Datei wurde von außen geändert: erst nachfragen (dialogs/file_changed.rs).
+            if self.session.active().is_some_and(|d| d.file_changed_elsewhere()) {
+                self.ask_file_changed();
+                return;
+            }
             match self.session.execute("file.save", &json!({})) {
                 Ok(_) => self.set_status("Saved"),
                 Err(e) => self.set_status(e.to_string()),

@@ -12,6 +12,7 @@ pub mod compare;
 pub mod connect;
 pub mod drawtable;
 pub mod file_access;
+pub mod file_stamp;
 pub mod fonts;
 pub mod gif_export;
 pub mod guard;
@@ -219,6 +220,8 @@ pub struct DocState {
     pub selection: Selection,
     pub history: History,
     pub path: Option<String>,
+    /// Stand der Datei beim letzten Lesen oder Schreiben ([`file_stamp::FileStamp`]).
+    pub file_stamp: Option<file_stamp::FileStamp>,
     pub revision: u64,
     pub saved_doc: Arc<Presentation>,
     pub interaction: Option<Interaction>,
@@ -257,6 +260,7 @@ impl DocState {
             selection: Selection::default(),
             history: History { limit: 500, ..Default::default() },
             path,
+            file_stamp: None,
             revision: 1,
             interaction: None,
             uid: next_uid(),

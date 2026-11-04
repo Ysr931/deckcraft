@@ -84,6 +84,19 @@ pub fn file_len(_path: &str) -> Option<u64> {
     None
 }
 
+/// Größe und Änderungszeit der Datei für `crate::file_stamp`; `None` wie bei [`file_len`].
+#[cfg(not(target_arch = "wasm32"))]
+pub fn file_len_and_time(path: &str) -> Option<(u64, std::time::SystemTime)> {
+    crate::file_access::check_read(path).ok()?;
+    let meta = std::fs::metadata(path).ok()?;
+    Some((meta.len(), meta.modified().ok()?))
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn file_len_and_time(_path: &str) -> Option<(u64, std::time::SystemTime)> {
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
